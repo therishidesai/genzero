@@ -1,0 +1,10 @@
+[package]
+name = "genzero"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossbeam = { version = "0.8.4", features = ["crossbeam-epoch"] }
+
+[dev-dependencies]
+rand = "0.8.5"
