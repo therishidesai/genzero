@@ -2,6 +2,11 @@
 name = "genzero"
 version = "0.1.0"
 edition = "2021"
+license = "MPL-2.0"
+description = "genzero is a library that lets you get the latest value of a type."
+homepage = "https://github.com/therishidesai/genzero"
+repository = "https://github.com/therishidesai/genzero"
+readme = "README.md"
 
 [dependencies]
 crossbeam = { version = "0.8.4", features = ["crossbeam-epoch"] }
