@@ -12,7 +12,6 @@ pub fn main() {
             tx.send(count);
             std::thread::sleep(ten_millis);
         }
-
     });
 
     let rx1 = rx.clone();
@@ -29,7 +28,6 @@ pub fn main() {
             let rand_millis = std::time::Duration::from_millis(wait_time);
             std::thread::sleep(rand_millis);
         }
-       
     });
 
     let mut rng = rand::thread_rng();
@@ -48,4 +46,3 @@ pub fn main() {
     t.join().expect("writer didn't close cleanly");
     tr.join().expect("second reader didn't close cleanly");
 }
-

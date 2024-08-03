@@ -31,19 +31,18 @@
 //!
 //! **NOTE: Once the [`Sender`] get's dropped all subsequent calls to `rx.recv()` will return `None`**
 
-
 use crossbeam::epoch::{pin, Atomic, Owned, Shared};
 
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 pub struct Sender<T: Clone> {
-    inner_tx: Arc<Atomic<T>>
+    inner_tx: Arc<Atomic<T>>,
 }
 
 #[derive(Clone)]
 pub struct Receiver<T: Clone> {
-    inner_rx: Arc<Atomic<T>>
+    inner_rx: Arc<Atomic<T>>,
 }
 
 impl<T: Clone> Drop for Sender<T> {
@@ -77,11 +76,11 @@ impl<T: Clone> Drop for Receiver<T> {
 pub fn new<T: Clone>(buf: T) -> (Sender<T>, Receiver<T>) {
     let inner = Arc::new(Atomic::new(buf));
     let tx = Sender {
-        inner_tx: inner.clone()
+        inner_tx: inner.clone(),
     };
 
     let rx = Receiver {
-        inner_rx: inner.clone()
+        inner_rx: inner.clone(),
     };
 
     (tx, rx)
@@ -92,7 +91,9 @@ impl<T: Clone> Sender<T> {
     /// epoch generation.
     pub fn send(&mut self, buf: T) {
         let guard = pin();
-        let old_buf = self.inner_tx.swap(Owned::new(buf), Ordering::Release, &guard);
+        let old_buf = self
+            .inner_tx
+            .swap(Owned::new(buf), Ordering::Release, &guard);
         unsafe {
             guard.defer_destroy(old_buf);
         }
@@ -106,9 +107,7 @@ impl<T: Clone> Receiver<T> {
     pub fn recv(&self) -> Option<T> {
         let guard = pin();
         let buf = self.inner_rx.load(Ordering::Acquire, &guard);
-        let inner_ref = unsafe {
-            buf.as_ref()
-        };
+        let inner_ref = unsafe { buf.as_ref() };
 
         match inner_ref {
             Some(b) => Some(b.clone()),
@@ -146,7 +145,6 @@ mod tests {
                 tx.send(count);
                 std::thread::sleep(ten_millis);
             }
-
         });
 
         let mut rng = rand::thread_rng();
