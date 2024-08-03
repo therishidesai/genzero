@@ -22,7 +22,7 @@
 //! ### Simple Example
 //! ```rust
 //! // Initialize first value to 0
-//! let (mut tx, rx) = genzero::new<u32>(0);
+//! let (mut tx, rx) = genzero::new::<u32>(0);
 //!
 //! tx.send(10);
 //!
