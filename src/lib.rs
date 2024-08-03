@@ -31,21 +31,21 @@
 //!
 //! **NOTE: Once the [`Sender`] get's dropped all subsequent calls to `rx.recv()` will return `None`**
 
-use crossbeam::epoch::{pin, Atomic, Owned, Shared};
+use crossbeam::epoch::{pin, Atomic, Guard, Owned, Shared};
 
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-pub struct Sender<T: Clone> {
+pub struct Sender<T> {
     inner_tx: Arc<Atomic<T>>,
 }
 
 #[derive(Clone)]
-pub struct Receiver<T: Clone> {
+pub struct Receiver<T> {
     inner_rx: Arc<Atomic<T>>,
 }
 
-impl<T: Clone> Drop for Sender<T> {
+impl<T> Drop for Sender<T> {
     /// Will place a null pointer as the current value and then mark
     /// the last value as destroyable and then trigger an epoch flush
     /// to destroy the data and avoid memory leaks.
@@ -76,7 +76,7 @@ pub fn new<T: Clone>(buf: T) -> (Sender<T>, Receiver<T>) {
     (tx, rx)
 }
 
-impl<T: Clone> Sender<T> {
+impl<T> Sender<T> {
     /// Updates the epoch pointer to the value of buf and bumps the
     /// epoch generation.
     pub fn send(&mut self, buf: T) {
@@ -86,6 +86,38 @@ impl<T: Clone> Sender<T> {
             .swap(Owned::new(buf), Ordering::Release, &guard);
         unsafe {
             guard.defer_destroy(old_buf);
+        }
+    }
+}
+
+pub struct Borrow<T> {
+    _guard: Guard,
+    // Ideally this would be a Shared,
+    // but that depends on the lifetime of the guard.
+    // SAFETY: the pointer is valid so long as we have the guard (i.e., epoch) we loaded it from.
+    shared: *const T
+}
+
+impl<T> std::ops::Deref for Borrow<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: the pointer is valid so long as we hold the guard.
+        unsafe { self.shared.as_ref().unwrap() }
+    }
+}
+
+impl<T> Receiver<T> {
+    pub fn borrow(&self) -> Option<Borrow<T>> {
+        let guard = pin();
+        let shared = self.inner_rx.load_consume(&guard).as_raw();
+        if shared.is_null() {
+            None
+        } else {
+            Some(Borrow {
+                _guard: guard,
+                shared
+            })
         }
     }
 }
@@ -123,6 +155,30 @@ mod tests {
     }
 
     #[test]
+    fn empty_after_drop() {
+        let (tx, rx) = new::<u32>(42);
+        assert_eq!(rx.recv(), Some(42));
+        drop(tx);
+        assert_eq!(rx.recv(), None);
+    }
+
+    #[test]
+    fn borrow_after_drop() {
+        let (tx, rx) = new::<u32>(42);
+        let b = match rx.borrow() {
+            Some(s) => s,
+            None => panic!("Empty borrow after init"),
+        };
+
+        drop(tx);
+        assert_eq!(rx.recv(), None);
+
+        // So long as we hold the pin, nothing bad happens.
+        // Once the pin is pulled, Mr. Grenade is not your friend.
+        assert_eq!(*b, 42);
+    }
+
+    #[test]
     fn one_writer_one_reader_random_waits() {
         let (mut tx, rx) = new::<u32>(0);
 
@@ -151,4 +207,36 @@ mod tests {
 
         t.join().expect("writer didn't close cleanly");
     }
+
+    #[test]
+    fn one_writer_one_reader_borrows() {
+        let (mut tx, rx) = new::<u32>(0);
+
+        let t = std::thread::spawn(move || {
+            let mut count = 0;
+            let ten_millis = std::time::Duration::from_millis(10);
+
+            for _n in 0..50 {
+                count = count + 1;
+                tx.send(count);
+                std::thread::sleep(ten_millis);
+            }
+        });
+
+        let mut rng = rand::thread_rng();
+
+        loop {
+            match rx.borrow() {
+                Some(b) if *b == 50 => break,
+                None => break,
+                _ => ()
+            }
+            let wait_time: u64 = rng.gen_range(0..50);
+            let rand_millis = std::time::Duration::from_millis(wait_time);
+            std::thread::sleep(rand_millis);
+        }
+
+        t.join().expect("writer didn't close cleanly");
+    }
+
 }
