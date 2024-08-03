@@ -61,16 +61,6 @@ impl<T: Clone> Drop for Sender<T> {
     }
 }
 
-impl<T: Clone> Drop for Receiver<T> {
-    /// Triggers an epoch flush to make sure any data set for defered
-    /// destruction gets destroyed
-    /// NOTE: May be unnecessary due to the `Drop` impl in the [`Sender`]
-    fn drop(&mut self) {
-        let guard = pin();
-        guard.flush();
-    }
-}
-
 /// Returns a [`Sender`] and [`Receiver`] of T and initializes the
 /// value to `buf`.
 pub fn new<T: Clone>(buf: T) -> (Sender<T>, Receiver<T>) {
