@@ -96,7 +96,7 @@ impl<T: Clone> Receiver<T> {
     /// `None`
     pub fn recv(&self) -> Option<T> {
         let guard = pin();
-        let buf = self.inner_rx.load(Ordering::Acquire, &guard);
+        let buf = self.inner_rx.load_consume(&guard);
         let inner_ref = unsafe { buf.as_ref() };
 
         match inner_ref {
