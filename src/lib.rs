@@ -62,7 +62,7 @@ use crossbeam::epoch::{pin, Atomic, Guard, Owned, Shared};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-/// Updates receivers with the newst value.
+/// Updates receivers with the newest value.
 pub struct Sender<T> {
     inner_tx: Arc<Atomic<T>>,
 }
