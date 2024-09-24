@@ -3,30 +3,60 @@
 genzero is a library that lets you get the latest value of a type.
 
 ## Why genzero?
-There are many concurrency programs where one may have many reader
-threads that want to get the latest value of a type that is being
-updated by another thread (spmc). A naive approach would be using
-a Mutex/RWLock on the shared piece of data. Locks are
-unfortunately slow in many cases and specifically don't allow us
-to maximize
-throughput. [RCU](https://en.wikipedia.org/wiki/Read-copy-update)
-is a technique initially developed in the linux kernel that allows
-the pattern described above while not blocking the writers and
-increasing throughput ([Fedor Pikus CppCon 2017 Talk on
-RCU](https://www.youtube.com/watch?v=rxQ5K9lo034)). [crossbeam-epoch](https://docs.rs/crossbeam-epoch/latest/crossbeam_epoch/)
-is an epoch based memory reclaimer that implements an RCU method
-for Rust. genzero is an API to achieve this simple spmc latest
-value pattern built on top of the crossbeam-epoch library.
 
-## How to use genzero?
-genzero's API is similar to a `crossbeam::channel` or a `std:sync::mpsc`
+In concurrent programs, we often want many reader threads to get
+the latest value from some writer thread (i.e., _single-producer, multi-consumer_, SPMC).
+A naïve approach would protect shared data with a Mutex or RWLock,
+but these can reduce throuhgput due to contention and cache line ping-pong.
 
-### Simple Example
+A faster SPMC approach is [RCU](https://en.wikipedia.org/wiki/Read-copy-update).[^1]
+Initially developed in the Linux kernel, it lets
+readers locklessly read the latest version *and continue referencing it*
+without blocking the writer from publishing new versions in the meantime.
+
+genzero provides a simple and safe API on top of
+[crossbeam-epoch](https://docs.rs/crossbeam-epoch/latest/crossbeam_epoch/),
+an RCU implementation for Rust.
+
+## How do I use use genzero?
+genzero's API is similar to a `crossbeam::channel` or a `std:sync::mpsc`:
+
 ```rust
-// Initialize first value to 0
-let (mut tx, rx) = genzero::new<u32>(0);
+// Start with nothing; you can also provide an initial value with genzero::new()
+let (mut tx, rx) = genzero::empty();
+assert_eq!(rx.recv(), None);
 
 tx.send(10);
 
 assert_eq!(rx.recv(), Some(10));
+
+// Once the sender is dropped, the receiver gets None.
+drop(tx);
+assert_eq!(rx.recv(), None);
 ```
+
+Due to the magic of ~~garbage collection~~ deferred reclamation,
+you can also borrow the latest value and hold that reference as long as you want,
+_completely independent of the sender or receiver's lifetime_.
+
+```rust
+let (mut tx, rx) = genzero::new(42);
+
+let b = rx.borrow().expect("borrow was None");
+assert_eq!(*b, 42);
+
+// Totally safe:
+drop(tx);
+assert_eq!(*b, 42);
+
+// ...even though new reads give us None:
+assert_eq!(rx.recv(), None);
+
+// Still!
+drop(rx);
+assert_eq!(*b, 42);
+```
+
+[^1]: See the [Linux kernel docs](https://www.kernel.org/doc/html/latest/RCU/whatisRCU.html)
+      or Fedor Pikus's [CppCon 2017 presentation](https://www.youtube.com/watch?v=rxQ5K9lo034)
+      to learn more.
