@@ -1,6 +1,6 @@
 [package]
 name = "genzero"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MPL-2.0"
 description = "genzero is a library that lets you get the latest value of a type."
@@ -9,7 +9,7 @@ repository = "https://github.com/therishidesai/genzero"
 readme = "README.md"
 
 [dependencies]
-crossbeam = { version = "0.8.4", features = ["crossbeam-epoch"] }
+crossbeam-epoch = "0.9"
 
 [dev-dependencies]
 rand = "0.8.5"

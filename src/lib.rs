@@ -57,7 +57,7 @@
 //!       or Fedor Pikus's [CppCon 2017 presentation](https://www.youtube.com/watch?v=rxQ5K9lo034)
 //!       to learn more.
 
-use crossbeam::epoch::{pin, Atomic, Guard, Owned, Shared};
+use crossbeam_epoch::{pin, Atomic, Guard, Owned, Shared};
 
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
