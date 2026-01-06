@@ -19,7 +19,6 @@
       {
         devShells.default = mkShell {
           nativeBuildInputs = [
-            pkgs.valgrind
             pkgs.cargo-nextest
             rust-bin.nightly.latest.default
           ];
